@@ -8,6 +8,7 @@ from PyPDF2 import PdfReader
 from io import BytesIO
 from ..models.resume import Resume
 from datetime import datetime
+from ..session_manager import session_manager
 
 router = APIRouter(
     prefix="/resume",
@@ -62,13 +63,15 @@ async def parse_resume(
         text_content = ""
         for page in pdf_reader.pages:
             text_content += page.extract_text()
-    
+
+        session_id = session_manager.create(text_content)
         
         return {
             "status": "success",
             "fileName": fileName,
             "text_content": text_content,
             "metadata": metadata,
+            "session_id": session_id
         }
     except requests.exceptions.RequestException as e:
         raise HTTPException(
