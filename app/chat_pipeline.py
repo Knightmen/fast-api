@@ -32,7 +32,7 @@ llm = ChatGoogleGenerativeAI(
 # ────────────────────────────────────────────────────────────────────────────
 # 2. Helpers
 # ────────────────────────────────────────────────────────────────────────────
-def new_memory(k: int = 2) -> ConversationBufferWindowMemory:
+def new_memory(k: int = 0) -> ConversationBufferWindowMemory:
     """Return a sliding-window memory holding the last *k* turns."""
     return ConversationBufferWindowMemory(k=k, return_messages=True)
 
