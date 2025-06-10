@@ -55,7 +55,7 @@ async def parse_resume(
         # Metadata - FileName, FileSize, FileType
         metadata = {
             "fileName": fileName,
-            "fileSize": f"{int(response.headers.get('Content-Length', 0)) / 1024:.2f}KB",
+            "fileSize": f"{int(response.headers.get('Content-Length', 0)) / 1024:.2f} KB",
             "fileType": "pdf"
         }
 
