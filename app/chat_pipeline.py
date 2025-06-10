@@ -23,7 +23,7 @@ setup_langsmith_tracing()
 # ────────────────────────────────────────────────────────────────────────────
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",          # pick any Gemini chat model
-    temperature=0.4,
+    temperature=0.8,
     max_tokens=1024,
     google_api_key=os.getenv("GOOGLE_API_KEY"),
     convert_system_message_to_human=True,  # Convert system messages to human messages
