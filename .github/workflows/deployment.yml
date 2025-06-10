@@ -1,0 +1,48 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Deploy and Run FastAPI App
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e  # Stop on error
+            cd /var/www/bonga-app/fast-api
+
+            echo "Pulling latest changes..."
+            git pull origin main
+
+            echo "Setting up Python virtual environment..."
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
+            source venv/bin/activate
+
+            echo "Installing/updating requirements..."
+            pip install --upgrade pip
+            pip install -r requirements.txt
+
+            echo "Stopping any existing FastAPI app processes..."
+            pkill -f "uvicorn" || true
+            pkill -f "app.main:app" || true
+
+            echo "Starting FastAPI app..."
+            nohup venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+
+            echo "FastAPI app deployed successfully!"
+          EOF
