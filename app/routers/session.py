@@ -1,6 +1,5 @@
 from fastapi import UploadFile, File, HTTPException, APIRouter
 from pydantic import BaseModel
-from pypdf import PdfReader
 
 from ..session_manager import session_manager
 from ..chat_pipeline import build_chain, predict_with_monitoring
@@ -17,7 +16,16 @@ class InitRequest(BaseModel):
 class InitResponse(BaseModel):
     session_id: str
 
-@router.post("/session/init", response_model=InitResponse)
+@router.get("/list")
+async def list_sessions():
+    """List all available session IDs for debugging"""
+    return {
+        "available_sessions": list(session_manager._sessions.keys()),
+        "total_sessions": len(session_manager._sessions)
+    }
+
+
+@router.post("/init", response_model=InitResponse)
 async def init_session(
     resume_text: str
 ):
@@ -38,16 +46,20 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     try:
-        session = session_manager.get(req.session_id)
+        session = await session_manager.get(req.session_id)
     except KeyError:
+        print(f"Session {req.session_id} not found. Available sessions: {list(session_manager._sessions.keys())}")
         raise HTTPException(404, "Invalid session_id")
-
-    # Build a chain *for this call* using session-specific resume + memory
-    chain = build_chain(session.resume_text, session.memory)
     
+    try:
+      # Build a chain *for this call* using session-specific resume + memory
+      chain = build_chain(session.resume_text, session.memory)
+    except Exception as e:
+        print(f"Error building chain: {e}")
+        raise HTTPException(500, "Error building chain")
+
     # Use the monitored prediction function
     result = predict_with_monitoring(chain, req.message, req.session_id)
-    
     return ChatResponse(
         answer=result["answer"],
         session_id=result["session_id"],

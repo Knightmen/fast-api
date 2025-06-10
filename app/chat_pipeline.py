@@ -80,7 +80,6 @@ def predict_with_monitoring(chain: LLMChain, question: str, session_id: str = No
     try:
         # Make the prediction with the chain
         answer = chain.predict(question=question)
-        
         return {
             "answer": answer,
             "session_id": session_id,
