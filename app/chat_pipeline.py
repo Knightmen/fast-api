@@ -56,7 +56,7 @@ def _prompt_from_resume(resume_text: str, metadata: dict) -> ChatPromptTemplate:
     You can use the information in the resume to answer the user's question. 
     For Name, contact information, address use the metadata to answer the user's question.
     In the user's question, if the question contains words like "cover letter", "email", "application", "message" or any descriptive message,
-    then you should generate a response that is concise and approximately 250 words, unless the user explicitly specifies a different length. 
+    then you should generate a response that is concise and approximately 120 words, unless the user explicitly specifies a different length. 
     You should maintain a professional tone and use the resume information to personalize the content.
     --- RESUME START ---
     {resume_text.replace("{", "\n").replace("}", "\n")}
