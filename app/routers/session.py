@@ -53,7 +53,7 @@ async def chat(req: ChatRequest):
     
     try:
       # Build a chain *for this call* using session-specific resume + memory
-      chain = build_chain(session.resume_text, session.memory)
+      chain = build_chain(session, "chat")
     except Exception as e:
         print(f"Error building chain: {e}")
         raise HTTPException(500, "Error building chain")

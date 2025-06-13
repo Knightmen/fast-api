@@ -2,27 +2,38 @@
 from __future__ import annotations
 from typing import Dict
 from langchain.memory import ConversationBufferWindowMemory
-from .chat_pipeline import new_memory
 from .database import AsyncSessionLocal
 from sqlalchemy import text
 
-class _Session:
-    def __init__(self, resume_text: str):
+class Session:
+    def __init__(self, resume_text: str, metadata: dict = {}):
         self.resume_text: str = resume_text
+        self.metadata: dict = metadata
         self.memory: ConversationBufferWindowMemory = new_memory()
+        
+    def set_metadata(self, metadata: dict):
+        self.metadata = metadata
 
+
+def new_memory(k: int = 2) -> ConversationBufferWindowMemory:
+    """Return a sliding-window memory holding the last *k* turns."""
+    return ConversationBufferWindowMemory(k=k, return_messages=True)
 
 class SessionManager:
     """Tiny in-memory store -- production apps should use Redis/DB."""
     def __init__(self):
-        self._sessions: Dict[str, _Session] = {}
+        self._sessions: Dict[str, Session] = {}
 
     # ── API ────────────────────────────────────────────────────────────────
-    def create(self, resume_text: str) -> str:
+    def create(self, resume_text: str, metadata: dict = {}) -> str:
         sid = str(len(self._sessions) + 1)
-        self._sessions[sid] = _Session(resume_text)
+        self._sessions[sid] = Session(resume_text, metadata)
         return sid
-    async def get(self, sid: str) -> _Session:
+    
+    def set_metadata(self, sid: str, metadata: dict):
+        self._sessions[sid].set_metadata(metadata)
+
+    async def get(self, sid: str) -> Session:
         if sid not in self._sessions:
             # Get resume from database
             print("Getting resume from database")
@@ -38,7 +49,7 @@ class SessionManager:
                         raise KeyError(f"No resume found for user {sid!r}")
                     
                     # Create new session with resume text from DB
-                    self._sessions[sid] = _Session(resume.raw_text)
+                    self._sessions[sid] = Session(resume.raw_text, metadata)
                 except Exception as e:
                     print(f"Database error: {e}")
                     raise KeyError(f"Error fetching resume for user {sid!r}: {e}")

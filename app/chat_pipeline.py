@@ -14,7 +14,7 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import LLMChain
 from langsmith import traceable
 from .langsmith_config import setup_langsmith_tracing
-
+from .session_manager import Session
 # Initialize LangSmith tracing
 setup_langsmith_tracing()
 
@@ -29,25 +29,15 @@ llm = ChatGoogleGenerativeAI(
     convert_system_message_to_human=True,  # Convert system messages to human messages
 )
 
-# ────────────────────────────────────────────────────────────────────────────
-# 2. Helpers
-# ────────────────────────────────────────────────────────────────────────────
-def new_memory(k: int = 2) -> ConversationBufferWindowMemory:
-    """Return a sliding-window memory holding the last *k* turns."""
-    return ConversationBufferWindowMemory(k=k, return_messages=True)
 
 
-def _prompt_from_resume(resume_text: str) -> ChatPromptTemplate:
-    """Create a prompt template that embeds *this* resume."""
+def _prompt_for_metadata(resume_text: str) -> ChatPromptTemplate:
     system_msg = f"""
-You are a helpful assistant. There is a resume below. Use the information in the resume as a context.
-User may ask for cover letter, job application, etc. You can use the information in the resume to answer the user's question.
-
---- RESUME START ---
-{resume_text}
---- RESUME END ---
-""".strip()
-
+    There is a resume below.
+    --- RESUME START ---
+    {resume_text}
+    --- RESUME END ---
+    """.strip()
     return ChatPromptTemplate.from_messages(
         [
             ("system", system_msg),
@@ -57,11 +47,44 @@ User may ask for cover letter, job application, etc. You can use the information
     )
 
 
-def build_chain(resume_text: str, memory: ConversationBufferWindowMemory) -> LLMChain:
-    """Return an LLMChain specific to this resume + memory."""
-    prompt = _prompt_from_resume(resume_text)
+def _prompt_from_resume(resume_text: str, metadata: dict) -> ChatPromptTemplate:
+    # Format metadata in a way that won't be parsed as template variables
+    metadata_text = "\n".join([f"{k}: {v}" for k, v in metadata.items()])
+    
+    system_msg = f"""
+    You are a helpful assistant. There is a resume below. Use the information in the resume as a context.
+    You can use the information in the resume to answer the user's question. 
+    For Name, contact information, address use the metadata to answer the user's question.
+    In the user's question, if the question contains words like "cover letter", "email", "application", "message" or any descriptive message,
+    then you should generate a response that is concise and approximately 250 words, unless the user explicitly specifies a different length. 
+    You should maintain a professional tone and use the resume information to personalize the content.
+    --- RESUME START ---
+    {resume_text.replace("{", "\n").replace("}", "\n")}
+    --- RESUME END ---
+    --- METADATA START ---
+    {metadata_text.replace("{", "\n").replace("}", "\n")}
+    --- METADATA END ---
+    """.strip()
+
+    print(system_msg)
+
+    return ChatPromptTemplate.from_messages(
+        [
+            ("system", system_msg),
+            MessagesPlaceholder("history"),   # conversation memory
+            ("human", "{question}"),          # new user message
+        ]
+    )
+
+def build_chain(session: Session, prompt_type: str = "chat") -> LLMChain:
+    if prompt_type == "chat":
+        prompt = _prompt_from_resume(session.resume_text, session.metadata)
+    elif prompt_type == "metadata":
+        prompt = _prompt_for_metadata(session.resume_text)
+    else:
+        raise ValueError(f"Invalid prompt type: {prompt_type}")
     print(prompt)
-    return LLMChain(llm=llm, prompt=prompt, memory=memory)
+    return LLMChain(llm=llm, prompt=prompt, memory=session.memory)
 
 
 @traceable(name="chat_prediction")

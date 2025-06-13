@@ -6,9 +6,12 @@ from pathlib import Path
 import requests
 from PyPDF2 import PdfReader
 from io import BytesIO
+import json
+import re
 from ..models.resume import Resume
 from datetime import datetime
 from ..session_manager import session_manager
+from ..chat_pipeline import build_chain, predict_with_monitoring
 
 router = APIRouter(
     prefix="/resume",
@@ -52,6 +55,15 @@ async def parse_resume(
         pdf_file = BytesIO(response.content)
         pdf_reader = PdfReader(pdf_file)
         
+        
+        # Metadata - FileName, FileSize, FileType
+        metadata = {
+            "fileName": fileName,
+            "fileSize": f"{int(response.headers.get('Content-Length', 0)) / 1024:.2f} KB",
+            "fileType": "pdf"
+        }
+
+
         # Metadata - FileName, FileSize, FileType
         metadata = {
             "fileName": fileName,
@@ -65,13 +77,64 @@ async def parse_resume(
             text_content += page.extract_text()
 
         session_id = session_manager.create(text_content)
+
+        session = await session_manager.get(session_id)
+        try:
+            chain = build_chain(session, "metadata")
+        except Exception as e:
+            print(f"Error building chain: {e}")
+            raise HTTPException(500, "Error building chain")
+        try:
+            result = predict_with_monitoring(chain,
+                    """
+                        Fill this JSON with the information in the resume.
+                        {
+                            "name": string,
+                            "email": string,
+                            "phone": string,
+                            "address": string,
+                            "skills": string[],
+                        }
+                        Return the JSON only. No other text.
+                    """          
+            )
+        except Exception as e:
+            print(f"Error predicting: {e}")
+            raise HTTPException(500, "Error predicting")
+        print(result["answer"])
         
+        # Parse the JSON from the markdown-formatted string
+        try:
+            # Extract JSON from markdown code block
+            json_match = re.search(r'```json\s*\n(.*?)\n```', result["answer"], re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                # If no markdown formatting, try to parse the entire string
+                json_str = result["answer"]
+            
+            # Parse the JSON string to an object
+            parsed_result = json.loads(json_str)
+        except (json.JSONDecodeError, AttributeError) as e:
+            print(f"Error parsing JSON result: {e}")
+            # If parsing fails, return the raw string
+            parsed_result = result["answer"]
+        
+        metadata = {
+            **parsed_result,
+            "fileName": fileName,
+            "fileSize": f"{int(response.headers.get('Content-Length', 0)) / 1024:.2f} KB",
+            "fileType": "pdf",
+        }
+        
+        session.set_metadata(metadata)
+
         return {
             "status": "success",
-            "fileName": fileName,
-            "text_content": text_content,
             "metadata": metadata,
-            "session_id": session_id
+            "fileName": fileName,
+            # "text_content": text_content,
+            "session_id": session_id,
         }
     except requests.exceptions.RequestException as e:
         raise HTTPException(
