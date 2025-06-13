@@ -32,7 +32,7 @@ llm = ChatGoogleGenerativeAI(
 # ────────────────────────────────────────────────────────────────────────────
 # 2. Helpers
 # ────────────────────────────────────────────────────────────────────────────
-def new_memory(k: int = 0) -> ConversationBufferWindowMemory:
+def new_memory(k: int = 2) -> ConversationBufferWindowMemory:
     """Return a sliding-window memory holding the last *k* turns."""
     return ConversationBufferWindowMemory(k=k, return_messages=True)
 
@@ -40,8 +40,8 @@ def new_memory(k: int = 0) -> ConversationBufferWindowMemory:
 def _prompt_from_resume(resume_text: str) -> ChatPromptTemplate:
     """Create a prompt template that embeds *this* resume."""
     system_msg = f"""
-You are a helpful assistant. **Only** use the information in the resume
-below to answer. If the answer is not present, reply "Can not reply at this moment!".
+You are a helpful assistant. There is a resume below. Use the information in the resume as a context.
+User may ask for cover letter, job application, etc. You can use the information in the resume to answer the user's question.
 
 --- RESUME START ---
 {resume_text}
