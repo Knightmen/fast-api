@@ -56,25 +56,11 @@ async def parse_resume(
         pdf_reader = PdfReader(pdf_file)
         
         
-        # Metadata - FileName, FileSize, FileType
-        metadata = {
-            "fileName": fileName,
-            "fileSize": f"{int(response.headers.get('Content-Length', 0)) / 1024:.2f} KB",
-            "fileType": "pdf"
-        }
-
-
-        # Metadata - FileName, FileSize, FileType
-        metadata = {
-            "fileName": fileName,
-            "fileSize": f"{int(response.headers.get('Content-Length', 0)) / 1024:.2f} KB",
-            "fileType": "pdf"
-        }
-
         # Extract text from all pages
         text_content = ""
         for page in pdf_reader.pages:
             text_content += page.extract_text()
+        print(text_content)
 
         session_id = session_manager.create(text_content)
 
@@ -133,7 +119,7 @@ async def parse_resume(
             "status": "success",
             "metadata": metadata,
             "fileName": fileName,
-            # "text_content": text_content,
+            "text_content": text_content,
             "session_id": session_id,
         }
     except requests.exceptions.RequestException as e:
