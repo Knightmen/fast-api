@@ -52,7 +52,7 @@ def _prompt_from_resume(resume_text: str, metadata: dict) -> ChatPromptTemplate:
     metadata_text = "\n".join([f"{k}: {v}" for k, v in metadata.items()])
     
     system_msg = f"""
-    You are a helpful assistant. There is a resume below. Use the information in the resume as a context.
+    You are a helpful assistant. There is a resume of the user below. Use the information in the resume as a context.
     You can use the information in the resume to answer the user's question. 
     For Name, contact information, address use the metadata to answer the user's question.
     In the user's question, if the question contains words like "cover letter", "email", "application", "message" or any descriptive message,
